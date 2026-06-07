@@ -129,6 +129,16 @@ function LoopPhoneInner() {
     else { fadeMusic(0, 1500); }                                     // silence in the loop
   }, [phase, ending, muted, fadeMusic]);
 
+  // Preload intro images so photo cards fade in instantly (no load-stutter).
+  useEffect(() => {
+    INTRO.forEach((card) => {
+      if (card.photo && PHOTO_SRC[card.photo]) {
+        const img = new Image();
+        img.src = PHOTO_SRC[card.photo];
+      }
+    });
+  }, []);
+
   const has = useCallback((k) => knowledge.has(k) || loopFlags.has(k) || inventory.has(k), [knowledge, loopFlags, inventory]);
 
   const gateOk = useCallback((ev) => {
@@ -388,9 +398,11 @@ function LoopPhoneInner() {
           {/* INTRO — backstory cards */}
           {phase === "intro" && (
             <div style={S.intro}>
-              {INTRO[introStep].photo && PHOTO_SRC[INTRO[introStep].photo] && (
-                <img key={`img${introStep}`} src={PHOTO_SRC[INTRO[introStep].photo]} alt="" style={S.introPhoto} />
-              )}
+              <div style={S.introPhotoSlot}>
+                {INTRO[introStep].photo && PHOTO_SRC[INTRO[introStep].photo] && (
+                  <img key={`img${introStep}`} src={PHOTO_SRC[INTRO[introStep].photo]} alt="" style={S.introPhoto} />
+                )}
+              </div>
               <div style={S.introText} key={introStep}>{INTRO[introStep].text}</div>
               <div style={S.introDots}>
                 {INTRO.map((_, i) => (
@@ -822,7 +834,8 @@ const S = {
   titleRule: { width: 50, height: 2, background: "#e8b98a", margin: "16px 0" },
   titleSub: { fontFamily: FONT_BODY, fontSize: 14, color: "#b8b0c0", fontStyle: "italic", lineHeight: 1.5, maxWidth: 240 },
   titleHint: { position: "absolute", bottom: 30, fontSize: 11, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase" },
-  introPhoto: { width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 12, animation: "fadeIn 1.8s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
+  introPhotoSlot: { width: "100%", height: 200, display: "flex", alignItems: "center", justifyContent: "center" },
+  introPhoto: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 12, animation: "fadeIn 1.8s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
   introText: { fontFamily: FONT_DISPLAY, color: "#ece6da", fontSize: 19, lineHeight: 1.5, animation: "fadeIn 1.8s ease", minHeight: 120, display: "flex", alignItems: "center" },
   introDots: { display: "flex", gap: 6 },
   introDot: { width: 6, height: 6, borderRadius: 999, background: "#e8b98a" },
