@@ -822,8 +822,8 @@ const S = {
   titleRule: { width: 50, height: 2, background: "#e8b98a", margin: "16px 0" },
   titleSub: { fontFamily: FONT_BODY, fontSize: 14, color: "#b8b0c0", fontStyle: "italic", lineHeight: 1.5, maxWidth: 240 },
   titleHint: { position: "absolute", bottom: 30, fontSize: 11, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase" },
-  introPhoto: { width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 12, animation: "fadeIn 1s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
-  introText: { fontFamily: FONT_DISPLAY, color: "#ece6da", fontSize: 19, lineHeight: 1.5, animation: "fadeIn 1s ease", minHeight: 120, display: "flex", alignItems: "center" },
+  introPhoto: { width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 12, animation: "fadeIn 1.8s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
+  introText: { fontFamily: FONT_DISPLAY, color: "#ece6da", fontSize: 19, lineHeight: 1.5, animation: "fadeIn 1.8s ease", minHeight: 120, display: "flex", alignItems: "center" },
   introDots: { display: "flex", gap: 6 },
   introDot: { width: 6, height: 6, borderRadius: 999, background: "#e8b98a" },
   introSkip: { background: "none", border: "none", color: "#6a6472", fontSize: 12, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase", marginTop: -8 },
@@ -907,7 +907,7 @@ const CSS = `
 button:hover { filter: brightness(1.08); }
 ::-webkit-scrollbar { width: 0; }
 @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
-@keyframes fadeIn { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+@keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
 .glitch { animation: glitchShake .12s steps(2) 6; }
 @keyframes glitchShake {
   0% { transform: translate(0,0); filter: none; }
