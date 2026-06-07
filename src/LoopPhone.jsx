@@ -129,6 +129,8 @@ function LoopPhoneInner() {
     else { fadeMusic(0, 1500); }                                     // silence in the loop
   }, [phase, ending, muted, fadeMusic]);
 
+  const has = useCallback((k) => knowledge.has(k) || loopFlags.has(k) || inventory.has(k), [knowledge, loopFlags, inventory]);
+
   const gateOk = useCallback((ev) => {
     const have = (k) => knowledge.has(k) || loopFlags.has(k) || inventory.has(k);
     if (ev.requires && !ev.requires.every(have)) return false;
