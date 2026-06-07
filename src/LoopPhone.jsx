@@ -1,6 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { LOOP_LENGTH, DEADLINE_LABEL, TYPING_MS, WALLPAPER, INTRO, TITLE, AUDIO, STORY, PHOTO_SRC, MEMORY_LABELS, ITEM_LABELS } from "./story.js";
 
+// Error boundary: instead of a black screen, show what went wrong.
+class Boundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error("Game crashed:", err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#141318", color: "#e8b98a",
+          fontFamily: "monospace", padding: 30, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 18 }}>The loop broke.</div>
+          <div style={{ fontSize: 12, color: "#d98a8a", maxWidth: 500, whiteSpace: "pre-wrap" }}>
+            {String(this.state.err && (this.state.err.stack || this.state.err.message || this.state.err))}
+          </div>
+          <button onClick={() => location.reload()} style={{ marginTop: 10, background: "#e8b98a",
+            border: "none", borderRadius: 999, padding: "10px 22px", cursor: "pointer" }}>
+            Start over
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function LoopPhone() {
+  return <Boundary><LoopPhoneInner /></Boundary>;
+}
+
 /* ---------- ENGINE ---------- */
 
 function fmt(t) {
@@ -23,7 +53,7 @@ const FONT_DISPLAY = "'Bricolage Grotesque', 'Trebuchet MS', sans-serif";
 const FONT_BODY = "'Spline Sans', 'Segoe UI', sans-serif";
 const DOOR_READY_AT = 240; // seconds before "Go to the door" appears (near the end)
 
-export default function LoopPhone() {
+function LoopPhoneInner() {
   const [phase, setPhase] = useState("title"); // title | intro | liveclock | fastforward | waking | loop
   const [introStep, setIntroStep] = useState(0);
   const [ffClock, setFfClock] = useState("");
@@ -314,11 +344,8 @@ export default function LoopPhone() {
         <audio ref={musicRef} src={AUDIO.intro} loop preload="auto" />
       )}
 
-      <div style={S.phone} onClickCapture={(e) => { if (e.target.closest("button")) tap(); }}>
+      <div style={S.phone} onClickCapture={(e) => { const t = e.target; if (t && typeof t.closest === "function" && t.closest("button")) tap(); }}>
         <div style={S.notch} />
-        <button style={S.muteBtn} onClick={() => setMuted((m) => !m)} aria-label="mute">
-          {muted ? "🔇" : "🔊"}
-        </button>
         <div style={S.statusbar}>
           <span>{
             phase === "loop" ? deadlinePlus(tick)
@@ -502,6 +529,8 @@ export default function LoopPhone() {
                         <AppIcon label="Journal" color="#5a4a3a"
                           badge={knowledge.size > 0 || inventory.size > 0}
                           onClick={() => setView("journal")} glyph="✎" />
+                        <AppIcon label="Settings" color="#44444c"
+                          onClick={() => setView("settings")} glyph="⚙" />
                       </div>
 
                       {tick >= DOOR_READY_AT && (
@@ -595,6 +624,30 @@ export default function LoopPhone() {
                   })()}
 
                   {/* JOURNAL — your character's running notes; replaces the old side panel */}
+                  {/* SETTINGS */}
+                  {view === "settings" && (
+                    <div style={S.thread}>
+                      <header style={S.threadHead}>
+                        <button style={S.back} onClick={() => setView("home")}>‹</button>
+                        <span>Settings</span>
+                      </header>
+                      <div style={S.settings}>
+                        <div style={S.settingsRow}>
+                          <span style={S.settingsLabel}>Sound</span>
+                          <button
+                            style={{ ...S.toggle, background: muted ? "#3a3640" : "#5a8a6b" }}
+                            onClick={() => setMuted((m) => !m)}
+                            role="switch" aria-checked={!muted}
+                          >
+                            <span style={{ ...S.toggleKnob, transform: muted ? "translateX(0)" : "translateX(20px)" }} />
+                          </button>
+                        </div>
+                        <div style={S.settingsHint}>{muted ? "Sound is off." : "Music and taps are on."}</div>
+                        <div style={S.settingsMeta}>BEFORE MIDNIGHT · Loop {loopCount}</div>
+                      </div>
+                    </div>
+                  )}
+
                   {view === "journal" && (
                     <div style={S.thread}>
                       <header style={S.threadHead}>
@@ -751,7 +804,13 @@ const S = {
   journalItem: { color: "#cfc7b8", fontSize: 13, padding: "5px 0" },
   phone: { width: 320, height: 640, background: "#0c0b0f", borderRadius: 44, padding: 12, boxShadow: "0 30px 80px rgba(0,0,0,.6), inset 0 0 0 2px #2c2933", position: "relative" },
   notch: { position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", width: 110, height: 22, background: "#0c0b0f", borderRadius: 14, zIndex: 5 },
-  muteBtn: { position: "absolute", top: 16, right: 18, zIndex: 8, background: "rgba(40,37,48,.6)", border: "none", borderRadius: 999, width: 26, height: 26, fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 },
+  settings: { flex: 1, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 6 },
+  settingsRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #221f29" },
+  settingsLabel: { fontFamily: FONT_DISPLAY, fontSize: 15, color: "#ece6da" },
+  settingsHint: { fontSize: 12.5, color: "#8a8494", marginTop: 6 },
+  settingsMeta: { marginTop: "auto", fontSize: 11, color: "#5a5560", letterSpacing: 1, textAlign: "center", paddingBottom: 8 },
+  toggle: { width: 44, height: 24, borderRadius: 999, border: "none", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "background .2s" },
+  toggleKnob: { width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "transform .2s", display: "block" },
   statusbar: { display: "flex", justifyContent: "space-between", color: "#e8e2d4", fontSize: 12, padding: "8px 22px 4px", letterSpacing: 0.5 },
   screen: { position: "relative", height: 560, background: "linear-gradient(180deg,#1b1922,#15131b)", borderRadius: 32, overflow: "hidden" },
   lock: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 30, textAlign: "center" },
