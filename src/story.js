@@ -27,8 +27,9 @@
      Sam died. The alibis contradict the evidence. One lie cracks it.
    ============================================================ */
 
-export const LOOP_LENGTH = 300;           // 5 minutes per loop
-export const DEADLINE_LABEL = "11:30";
+export const LOOP_LENGTH = 300;           // 5 minutes per loop (11:28 -> 11:30 knock)
+export const START_LABEL = "11:25";       // clock when the loop begins
+export const DEADLINE_LABEL = "11:30";    // the knock happens here
 export const TYPING_MS = 1500;
 export const WALLPAPER = "";
 
@@ -39,11 +40,48 @@ export const AUDIO = {
   introVolume: 0.55,
 };
 
+/* Chapter card, shown after the title. */
+export const CHAPTER = {
+  label: "Chapter One",
+  name: "The Knock",
+};
+
+/* "How to play" — pure orientation. Does NOT reveal the loop; that's discovered. */
+export const HOWTO = {
+  heading: "Your phone",
+  lines: [
+    "It's late. People are trying to reach you.",
+    "Read your messages and answer the people texting you.",
+    "Look through your apps. Photos, notes, everything.",
+    "Something is going to happen at 11:30. You have until then.",
+  ],
+  button: "Got it",
+};
+
 /* Title screen text. */
 export const TITLE = {
   name: "BEFORE MIDNIGHT",
+  chapter: "Chapter One",
   subtitle: "Some nights don't end. They start over.",
   hint: "Sound on. Headphones if you have them.",
+};
+
+/* Chapter 2 teaser, shown locked on the title and after the true ending. */
+export const CHAPTER2 = {
+  label: "Chapter Two",
+  teaser: "The Second Car",
+  blurb: "You saved her. But the phone knows there was another driver that night, and the loop was never only about Lena. Chapter Two is coming soon.",
+  locked: "Coming soon",
+};
+
+/* Chapter 2 teaser, shown after the true ending and on the title (locked). */
+export const CHAPTER_TWO = {
+  label: "Chapter Two",
+  teaserTitle: "Chapter Two",
+  teaserLine: "Who was driving the second car?",
+  teaserBody: "The night isn't done with you. Chapter Two is coming soon.",
+  lockedNote: "Finish Chapter One to continue. Chapter Two coming soon.",
+  button: "Coming soon",
 };
 
 /* Opening backstory — shown as cards before the clock starts. Each card is
@@ -148,7 +186,7 @@ export const STORY = {
     { id: "ev_glitch_self_3", time: 60, type: "glitch", from: "self", minLoop: 5,
       text: "this is the 1,4‌0‌th time. she dies at 11:30 every time but this isn't about her. it never was." },
     { id: "ev_glitch_battery", time: 250, type: "notif", app: "phone", from: "you", minLoop: 4,
-      text: "Battery 100%. Battery 4%. Battery 88%. Time remaining: —:—" },
+      text: "Battery 100%. Battery 4%. Battery 88%. Time remaining: --:--" },
 
     { id: "ev_door", time: LOOP_LENGTH, type: "door" },
   ],
@@ -157,9 +195,9 @@ export const STORY = {
     mara: {
       contact: "mara",
       replies: [
-        { id: "r_ask", text: "Tell me what?", grants: { knowledge: "mara_has_secret" },
+        { id: "r_ask", text: "Tell me what?", group: "mara_open", grants: { knowledge: "mara_has_secret" },
           response: "I keep typing it and deleting it. Just... don't shut me out tonight. Okay?" },
-        { id: "r_safe", text: "Whatever it is, you're safe. I'm here.", sets: { loopFlag: "told_mara_safe" },
+        { id: "r_safe", text: "Whatever it is, you're safe. I'm here.", group: "mara_open", sets: { loopFlag: "told_mara_safe" },
           response: "Okay. Okay. Thank you. I love you." },
         { id: "r_mara_alibi", text: "The night of the crash. What do you actually remember?",
           requires: ["knows_sam"], grants: { knowledge: "alibi_mara" },
@@ -169,7 +207,7 @@ export const STORY = {
           response: "Lena's HERE? No. No, she can't be. She swore she'd never come near us." },
         { id: "r_mara_warn", text: "Mara, I think someone wants to hurt Lena tonight. Stay on the phone.",
           requires: ["lena_in_danger"], grants: { knowledge: "ready_to_act" },
-          response: "Hurt her? Who would— oh god. You don't think it's... no. Tell me it's not him." },
+          response: "Hurt her? Who would... oh god. You don't think it's... no. Tell me it's not him." },
       ],
     },
 
@@ -243,7 +281,7 @@ export const STORY = {
         { id: "r_theo_receipt", text: "There's a gas receipt. 2:14 AM. Near the scene. That's an hour after you said you left.",
           requiresItem: ["item_deleted_msgs", "item_receipt"], requires: ["contra_theo"],
           grants: { knowledge: "killer_is_theo" },
-          response: "...he was going to tell everyone YOU were driving. you'd have lost everything. i was protecting you. i was always protecting you. i didnt mean for him to—" },
+          response: "...he was going to tell everyone YOU were driving. you'd have lost everything. i was protecting you. i was always protecting you. i didnt mean for him to..." },
       ],
     },
   },
@@ -314,9 +352,9 @@ export const STORY = {
           requires: ["item_hospital_log"] },
         { id: "v_receipt", caption: "🧾 Gas receipt: 2:14 AM, station 1 mile from the scene. Theo said he left right after the crash (12:40 AM).",
           requires: ["item_receipt"] },
-        { id: "v_deleted", caption: "💬 Theo's deleted texts: \"is he still breathing\" / \"don't call anyone\" / \"i'll handle it\" — timestamped 1:55 AM.",
+        { id: "v_deleted", caption: "💬 Theo's deleted texts: \"is he still breathing\" / \"don't call anyone\" / \"i'll handle it\", timestamped 1:55 AM.",
           requires: ["item_deleted_msgs"], grants: { knowledge: "knows_loop" } },
-        { id: "v_ping", caption: "📍 A location ping from Sam's phone at 2:09 AM — moving AWAY from the wreck. Someone moved him.",
+        { id: "v_ping", caption: "📍 A location ping from Sam's phone at 2:09 AM, moving AWAY from the wreck. Someone moved him.",
           requires: ["item_location_ping"] },
       ],
     },
@@ -338,7 +376,7 @@ export const STORY = {
           text: "anyone else hear someone in the stairwell on Alder tonight? 👀 prob nothing",
           meta: "posted in Neighborhood Watch" },
         { id: "f_mara_ring", author: "mara", time: "5d", redHerring: true,
-          text: "three weeks!!! 💍 still can't believe it",
+          text: "three weeks!!! 💍 still can't believe it", photo: "us_recent",
           meta: "62 likes" },
         // --- evidence posts ---
         { id: "f_lena_soon", author: "lena", time: "6h",
@@ -347,11 +385,12 @@ export const STORY = {
           requires: ["saw_unknown_warning"] },
         { id: "f_theo_memorial", author: "theo", time: "today",
           text: "4 years without you brother. wish i'd done things different that night. 💔",
+          photo: "old_us",
           meta: "📍 tagged: Alder Court · 11:55 PM",
           requires: ["knows_sam"], grants: { knowledge: "theo_near_scene" } },
         { id: "f_old_throwback", author: "theo", time: "4y",
-          text: "last good night with the crew before everything changed",
-          meta: "📷 two cars in the driveway — one of them isn't yours or Sam's",
+          text: "last good night with the crew before everything changed", photo: "accident",
+          meta: "📷 two cars in the driveway. one of them isn't yours or Sam's",
           requires: ["sam_survived"], grants: { item: "item_receipt" } },
       ],
     },
@@ -394,32 +433,32 @@ export const STORY = {
 
   endings: {
     stranger_at_the_door: {
-      title: "The Stranger at the Door", tone: "loop",
+      title: "The Stranger at the Door", tone: "loop", photo: "front_door",
       text: "You open it braced for a threat, and find a woman with her hand raised to knock. Behind her, a shape moves in the dark. You never learned who. The screen goes black. The phone lights up again. 11:30.",
     },
     believe_the_stranger: {
-      title: "Believe the Stranger", tone: "loop",
+      title: "Believe the Stranger", tone: "loop", photo: "front_door",
       text: "You let the knock fade. In the morning they find Lena at the bottom of your stairs. \"Accident,\" the report says. You survive the night having saved no one. The phone lights up again.",
     },
     dont_pick_up: {
-      title: "A Kindness in the Dark", tone: "loop",
+      title: "A Kindness in the Dark", tone: "loop", photo: "front_door",
       text: "You open the door gently and pull her in out of instinct. It buys a few minutes. But you didn't know what was coming, and the night isn't done with you yet. 11:30, again.",
     },
     took_the_blow: {
-      title: "Took the Blow", tone: "final",
+      title: "Took the Blow", tone: "final", photo: "accident",
       text: "You yank Lena inside as the figure lunges. You don't see who it is. You only feel it. Lena lives. You don't get to know if you do. But the truth she carried is finally safe with someone, and the loop, at last, goes quiet.",
     },
     wrong_accusation: {
-      title: "The Wrong Name", tone: "loop",
-      text: "You're so sure. You turn your back on the door to make the accusation — and behind you, the knock never comes, because it already happened. You blamed the wrong person, and the right one was never stopped. 11:30.",
+      title: "The Wrong Name", tone: "loop", photo: "note",
+      text: "You're so sure. You turn your back on the door to make the accusation, and behind you, the knock never comes, because it already happened. You blamed the wrong person, and the right one was never stopped. 11:30.",
     },
     named_the_killer: {
-      title: "Name the Killer", tone: "final",
-      text: "You open the door and say it to his face: \"I know what you did to Sam.\" Theo freezes. The mask cracks. It's ugly and it's loud and the neighbors call it in — but Lena is alive, and for the first time the lie is out loud. Not clean. But over.",
+      title: "Name the Killer", tone: "final", photo: "accident",
+      text: "You open the door and say it to his face: \"I know what you did to Sam.\" Theo freezes. The mask cracks. It's ugly and it's loud and the neighbors call it in, but Lena is alive, and for the first time the lie is out loud. Not clean. But over.",
     },
     saved_her: {
-      title: "Before Midnight", tone: "true",
-      text: "You don't open the door. You call it in. You warn her. Theo is still at the bottom of the stairs when the police arrive, and Lena is alive, and Sam is finally more than a lie. The clock reads 11:31. Then 11:32. Time moves.\n\nYou set the phone down. It buzzes once more.\n\nUnknown: \"Good. You got it right this time. Now do you remember who was driving the SECOND car?\"\n\nThe screen reads 11:28. The phone is buzzing on the nightstand. Mara wants to tell you something.",
+      title: "Before Midnight", tone: "true", photo: "sisters_kids",
+      text: "You don't open the door. You call it in. You warn her. Theo is still at the bottom of the stairs when the police arrive, and Lena is alive, and Sam is finally more than a lie. The clock reads 11:31. Then 11:32. Time moves.\n\nYou set the phone down. It buzzes once more.\n\nUnknown: \"Good. You got it right this time. Now do you remember who was driving the SECOND car?\"\n\nThe screen reads 11:25. The phone is buzzing on the nightstand. Mara wants to tell you something.",
     },
   },
 };

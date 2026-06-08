@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { LOOP_LENGTH, DEADLINE_LABEL, TYPING_MS, WALLPAPER, INTRO, TITLE, AUDIO, STORY, PHOTO_SRC, MEMORY_LABELS, ITEM_LABELS } from "./story.js";
+import { LOOP_LENGTH, START_LABEL, DEADLINE_LABEL, TYPING_MS, WALLPAPER, INTRO, TITLE, HOWTO, CHAPTER2, AUDIO, STORY, PHOTO_SRC, MEMORY_LABELS, ITEM_LABELS } from "./story.js";
 
 // Error boundary: instead of a black screen, show what went wrong.
 class Boundary extends React.Component {
@@ -40,7 +40,7 @@ function fmt(t) {
 }
 // In-story clock: deadline time plus elapsed loop seconds (so the phone reads 11:30, 11:31...).
 function deadlinePlus(elapsedSec) {
-  const [h0, m0] = DEADLINE_LABEL.split(":").map(Number);
+  const [h0, m0] = START_LABEL.split(":").map(Number);
   const total = h0 * 60 + m0 + Math.floor(elapsedSec / 60);
   let h = Math.floor(total / 60) % 24;
   const m = total % 60;
@@ -71,11 +71,16 @@ function LoopPhoneInner() {
   const [typing, setTyping] = useState({});          // threadId -> bool
   const [notifs, setNotifs] = useState([]);
   const [usedReplies, setUsedReplies] = useState(() => new Set());
+  const [usedGroups, setUsedGroups] = useState(() => new Set());
   const [readThreads, setReadThreads] = useState(() => new Set());
   const [activeThreads, setActiveThreads] = useState(() => new Set()); // contacted you this loop
   const [incomingCall, setIncomingCall] = useState(null);
   const [openPhoto, setOpenPhoto] = useState(null);
   const [glitching, setGlitching] = useState(false);
+  const [endingRevealed, setEndingRevealed] = useState(false);
+  const [showCoach, setShowCoach] = useState(true);
+  const [loopReveal, setLoopReveal] = useState(false);
+  const [loopRevealSeen, setLoopRevealSeen] = useState(false);
   const [muted, setMuted] = useState(false);
   const musicRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -105,8 +110,8 @@ function LoopPhoneInner() {
     } catch (e) { /* audio not available */ }
   }, [muted]);
 
-  // Fade the intro music to a target volume over ms.
-  const fadeMusic = useCallback((target, ms = 800) => {
+  // Fade the intro music to a target volume over ms. If restart, play from the top.
+  const fadeMusic = useCallback((target, ms = 800, restart = false) => {
     const a = musicRef.current;
     if (!a) return;
     const start = a.volume;
@@ -117,16 +122,21 @@ function LoopPhoneInner() {
       if (p < 1) requestAnimationFrame(tick2);
       else if (target === 0) a.pause();
     };
-    if (target > 0 && a.paused) { a.play().catch(() => {}); }
+    if (target > 0 && a.paused) {
+      if (restart) { try { a.currentTime = 0; } catch (e) {} }
+      a.volume = 0;
+      a.play().catch(() => {});
+    }
     requestAnimationFrame(tick2);
   }, []);
 
   // Music: solemn during intro & endings; fades out for the loop itself.
   useEffect(() => {
     if (muted) { fadeMusic(0, 300); return; }
-    if (ending) { fadeMusic(AUDIO.introVolume ?? 0.5, 1200); }      // return on endings
-    else if (phase === "title" || phase === "intro" || phase === "liveclock") { fadeMusic(AUDIO.introVolume ?? 0.5, 1200); }
-    else { fadeMusic(0, 1500); }                                     // silence in the loop
+    if (ending) { fadeMusic(AUDIO.introVolume ?? 0.5, 1200, true); }   // restart from top on endings
+    else if (phase === "title") { fadeMusic(AUDIO.introVolume ?? 0.5, 1200, true); }
+    else if (phase === "intro" || phase === "liveclock" || phase === "howto" || phase === "chapter") { fadeMusic(AUDIO.introVolume ?? 0.5, 1200); }
+    else { fadeMusic(0, 1500); }                                       // silence in the loop
   }, [phase, ending, muted, fadeMusic]);
 
   // Preload intro images so photo cards fade in instantly (no load-stutter).
@@ -138,6 +148,47 @@ function LoopPhoneInner() {
       }
     });
   }, []);
+
+  // Synthesized phone ring — a classic two-tone burst. Returns a stop function.
+  const ringStop = useRef(null);
+  const startRing = useCallback(() => {
+    if (muted) return;
+    try {
+      let ctx = audioCtxRef.current;
+      if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); audioCtxRef.current = ctx; }
+      if (ctx.state === "suspended") ctx.resume();
+      let stopped = false;
+      const ringOnce = () => {
+        if (stopped) return;
+        const t = ctx.currentTime;
+        [0, 0.4].forEach((off) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "sine";
+          o.frequency.value = 440;
+          const o2 = ctx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.value = 480;
+          g.gain.setValueAtTime(0.0001, t + off);
+          g.gain.exponentialRampToValueAtTime(0.18, t + off + 0.05);
+          g.gain.setValueAtTime(0.18, t + off + 0.3);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + off + 0.38);
+          o.connect(g); o2.connect(g); g.connect(ctx.destination);
+          o.start(t + off); o.stop(t + off + 0.4);
+          o2.start(t + off); o2.stop(t + off + 0.4);
+        });
+      };
+      ringOnce();
+      const iv = setInterval(ringOnce, 3000); // ring cadence
+      ringStop.current = () => { stopped = true; clearInterval(iv); };
+    } catch (e) { /* audio unavailable */ }
+  }, [muted]);
+
+  // Ring while a call is incoming.
+  useEffect(() => {
+    if (incomingCall && !muted) startRing();
+    return () => { if (ringStop.current) { ringStop.current(); ringStop.current = null; } };
+  }, [incomingCall, muted, startRing]);
 
   const has = useCallback((k) => knowledge.has(k) || loopFlags.has(k) || inventory.has(k), [knowledge, loopFlags, inventory]);
 
@@ -281,18 +332,21 @@ function LoopPhoneInner() {
   function chooseDoor(choice) {
     const e = STORY.endings[choice.ending];
     setAtDoor(false);
-    setEnding({ title: e.title, text: e.text, tone: e.tone });
+    setEndingRevealed(false);
+    setEnding({ title: e.title, text: e.text, tone: e.tone, photo: e.photo });
   }
 
   function resetLoop(hard = false) {
     tickRef.current = 0;
     firedRef.current = new Set();
     setTick(0); setThreadMsgs({}); setTyping({}); setNotifs([]);
-    setUsedReplies(new Set()); setReadThreads(new Set()); setActiveThreads(new Set()); setIncomingCall(null); setOpenPhoto(null); setGlitching(false); setLoopFlags(new Set());
-    setView("home"); setEnding(null); setAtDoor(false);
+    setUsedReplies(new Set()); setUsedGroups(new Set()); setReadThreads(new Set()); setActiveThreads(new Set()); setIncomingCall(null); setOpenPhoto(null); setGlitching(false); setLoopFlags(new Set());
+    setView("home"); setEnding(null); setEndingRevealed(false); setAtDoor(false);
     if (hard) {
-      setKnowledge(new Set()); setInventory(new Set()); setLoopCount(1); setIntroStep(0); setPhase("title");
+      setKnowledge(new Set()); setInventory(new Set()); setLoopCount(1); setIntroStep(0); setLoopRevealSeen(false); setPhase("title");
     } else {
+      // The first time the player loops, reveal what's happening.
+      if (loopCount === 1 && !loopRevealSeen) { setLoopReveal(true); setLoopRevealSeen(true); }
       setLoopCount((c) => c + 1); setPhase("loop");
     }
   }
@@ -308,6 +362,8 @@ function LoopPhoneInner() {
   function sendReply(threadId, reply) {
     if (usedReplies.has(reply.id)) return;
     setUsedReplies((s) => new Set(s).add(reply.id));
+    // Retire mutually-exclusive sibling replies in the same group.
+    if (reply.group) setUsedGroups((s) => new Set(s).add(`${threadId}:${reply.group}`));
     setThreadMsgs((m) => ({ ...m, [threadId]: [...(m[threadId] || []), { from: "you", text: reply.text }] }));
     grant(reply.grants); setFlag(reply.sets);
     if (reply.response) incoming(threadId, reply.response);
@@ -363,7 +419,7 @@ function LoopPhoneInner() {
             phase === "loop" ? deadlinePlus(tick)
             : phase === "fastforward" ? ffClock
             : phase === "waking" ? DEADLINE_LABEL
-            : "11:28"
+            : START_LABEL
           }</span>
           <span style={{ letterSpacing: 1, color: loopCount >= 4 ? "#b34a3a" : undefined }}>
             {inLoop ? (loopCount >= 6 ? "LOOP ∞" : loopCount >= 4 ? `LOOP ${loopCount}̷${loopCount * 47}` : `LOOP ${loopCount}`) : ""}
@@ -374,24 +430,49 @@ function LoopPhoneInner() {
         <div style={S.screen} className={glitching ? "glitch" : ""}>
           {/* TITLE SCREEN */}
           {phase === "title" && (
-            <div style={S.title}>
+            <div style={{ ...S.title, animation: "fadeIn 2s ease" }}>
               <div style={S.titleMark}>{TITLE.name}</div>
+              <div style={S.titleChapter}>{TITLE.chapter}</div>
               <div style={S.titleRule} />
               <div style={S.titleSub}>{TITLE.subtitle}</div>
               <button
-                style={{ ...S.btn, marginTop: 26 }}
+                style={{ ...S.btn, marginTop: 22 }}
                 onClick={() => {
                   // First gesture: unlock + start music.
                   if (!muted && musicRef.current && musicRef.current.paused) {
                     musicRef.current.volume = AUDIO.introVolume ?? 0.5;
                     musicRef.current.play().catch(() => {});
                   }
-                  setPhase("intro");
+                  setPhase("chapter");
                 }}
               >
                 Begin
               </button>
+              <div style={S.titleLocked}>🔒 {CHAPTER2.label} · {CHAPTER2.locked}</div>
               <div style={S.titleHint}>{TITLE.hint}</div>
+            </div>
+          )}
+
+          {/* CHAPTER CARD */}
+          {phase === "chapter" && (
+            <button style={S.chapter} onClick={() => setPhase("howto")}>
+              <div style={S.chapterLabel}>{TITLE.chapter}</div>
+              <div style={S.chapterRule} />
+              <div style={S.chapterName}>{TITLE.name}</div>
+              <div style={S.chapterTap}>tap to continue</div>
+            </button>
+          )}
+
+          {/* HOW TO PLAY */}
+          {phase === "howto" && (
+            <div style={{ ...S.intro, animation: "fadeIn 1.8s ease" }}>
+              <div style={S.howHeading}>{HOWTO.heading}</div>
+              <div style={S.howList}>
+                {HOWTO.lines.map((l, i) => (
+                  <div key={i} style={S.howLine}><span style={S.howNum}>{i + 1}</span>{l}</div>
+                ))}
+              </div>
+              <button style={S.btn} onClick={() => setPhase("intro")}>{HOWTO.button}</button>
             </div>
           )}
 
@@ -428,7 +509,7 @@ function LoopPhoneInner() {
           {phase === "liveclock" && (
             <div style={S.lock}>
               <div style={S.lockDate}>Tonight</div>
-              <div style={S.lockTime}>11:28<span style={S.ap}>PM</span></div>
+              <div style={S.lockTime}>{START_LABEL}<span style={S.ap}>PM</span></div>
               <div style={S.lockLine} />
               <p style={S.lockHint}>Swipe up.</p>
               <button style={S.btn} onClick={() => setPhase("fastforward")}>Open</button>
@@ -438,7 +519,7 @@ function LoopPhoneInner() {
           {/* COLD OPEN — fast forward */}
           {phase === "fastforward" && (
             <div style={S.lock}>
-              <div style={S.lockDate}>—</div>
+              <div style={S.lockDate}>·</div>
               <div style={{ ...S.lockTime, color: "#e8b98a", fontSize: ffClock.length > 5 ? 52 : 72 }}>{ffClock}</div>
               <p style={S.ffHint}>time slipping…</p>
             </div>
@@ -455,24 +536,49 @@ function LoopPhoneInner() {
           {/* LOOP */}
           {inLoop && (
             <>
+              {loopReveal && (
+                <div style={S.revealOverlay} onClick={() => setLoopReveal(false)}>
+                  <div style={S.revealText} className="flicker">{START_LABEL}</div>
+                  <div style={S.revealLine}>Wait.</div>
+                  <div style={S.revealLine}>Didn't this just happen?</div>
+                  <div style={S.revealSub}>You're back at the start. But you remember.</div>
+                  <div style={S.revealTap}>tap to continue</div>
+                </div>
+              )}
               {ending && (
                 <div style={S.center}>
                   <div style={S.endTitle}>{ending.title}</div>
                   <div style={{ ...S.endText, whiteSpace: "pre-line" }}>{ending.text}</div>
-                  {ending.tone === "true" ? (
-                    <>
-                      <p style={{ ...S.lockHint, color: "#e8b98a" }}>11:32. And counting.</p>
-                      <button style={S.btn} onClick={() => resetLoop(true)}>Play again from the start</button>
-                    </>
-                  ) : ending.tone === "final" ? (
-                    <>
-                      <p style={S.lockHint}>The loop lets you go.</p>
-                      <button style={S.btn} onClick={resetLoop}>Begin again</button>
-                    </>
+
+                  {ending.photo && PHOTO_SRC[ending.photo] && !endingRevealed ? (
+                    <button style={S.btn} onClick={() => setEndingRevealed(true)}>Next</button>
                   ) : (
                     <>
-                      <p style={S.lockHint}>What you learned, you keep.</p>
-                      <button style={S.btn} onClick={resetLoop}>Loop again</button>
+                      {ending.photo && PHOTO_SRC[ending.photo] && (
+                        <img src={PHOTO_SRC[ending.photo]} alt="" style={S.endPhoto} />
+                      )}
+                      {ending.tone === "true" ? (
+                        <>
+                          <p style={{ ...S.lockHint, color: "#e8b98a" }}>11:32. And counting.</p>
+                          <div style={S.ch2Teaser}>
+                            <div style={S.ch2Label}>{CHAPTER2.label}</div>
+                            <div style={S.ch2Line}>"{CHAPTER2.teaser}"</div>
+                            <div style={S.ch2Body}>{CHAPTER2.blurb}</div>
+                            <div style={S.ch2Locked}>🔒 {CHAPTER2.locked}</div>
+                          </div>
+                          <button style={S.btn} onClick={() => resetLoop(true)}>Replay Chapter One</button>
+                        </>
+                      ) : ending.tone === "final" ? (
+                        <>
+                          <p style={S.lockHint}>The loop lets you go.</p>
+                          <button style={S.btn} onClick={resetLoop}>Begin again</button>
+                        </>
+                      ) : (
+                        <>
+                          <p style={S.lockHint}>What you learned, you keep.</p>
+                          <button style={S.btn} onClick={resetLoop}>Loop again</button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -515,6 +621,12 @@ function LoopPhoneInner() {
                       {/* soft clock/date overlay on the wallpaper, like a real home screen */}
                       <div style={S.homeClock}>{fmt(Math.max(0, LOOP_LENGTH - tick))}</div>
                       <div style={S.homeDate}>until the knock</div>
+                      {loopCount === 1 && showCoach && (
+                        <button style={S.coach} onClick={() => setShowCoach(false)}>
+                          <div style={S.coachTitle}>What do I do?</div>
+                          <div style={S.coachText}>Tap Messages to answer people. Open your apps to look around. Something happens at 11:30. Tap to dismiss.</div>
+                        </button>
+                      )}
                       {notifs.length > 0 && (
                         <div style={S.notifStack}>
                           {notifs.slice(-4).map((n) => (
@@ -602,6 +714,7 @@ function LoopPhoneInner() {
                     const replies = (t && !typing[id] && hasIncoming)
                       ? (t.replies || []).filter((r) =>
                           !usedReplies.has(r.id)
+                          && !(r.group && usedGroups.has(`${id}:${r.group}`))
                           && (!r.requires || r.requires.every((k) => has(k)))
                           && (!r.requiresItem || r.requiresItem.every((i) => inventory.has(i)))
                           && (!r.forbids || !r.forbids.some((k) => has(k))))
@@ -678,7 +791,7 @@ function LoopPhoneInner() {
                         ) : (
                           [...knowledge]
                             .filter((k) => MEMORY_LABELS[k])
-                            .map((k) => <div key={k} style={S.journalLine}>— {MEMORY_LABELS[k]}</div>)
+                            .map((k) => <div key={k} style={S.journalLine}>• {MEMORY_LABELS[k]}</div>)
                         )}
                         {[...inventory].length > 0 && (
                           <>
@@ -732,7 +845,7 @@ function LoopPhoneInner() {
                           <div style={S.feed}>
                             {posts.map((p) => {
                               const author = p.author === "lena" && !has("knew_lena")
-                                ? "Unknown" : (nameOf(p.author) === "—" ? "Someone" : nameOf(p.author));
+                                ? "Unknown" : (C[p.author] ? nameOf(p.author) : "Someone");
                               const color = C[p.author]?.color || "#6b7280";
                               return (
                                 <button key={p.id} style={S.post}
@@ -743,6 +856,9 @@ function LoopPhoneInner() {
                                     <span style={S.postTime}>· {p.time}</span>
                                   </div>
                                   <div style={S.postText}>{p.text}</div>
+                                  {p.photo && PHOTO_SRC[p.photo] && (
+                                    <img src={PHOTO_SRC[p.photo]} alt="" style={S.postImg} />
+                                  )}
                                   {p.meta && <div style={S.postMeta}>{p.meta}</div>}
                                 </button>
                               );
@@ -829,10 +945,32 @@ const S = {
   screen: { position: "relative", height: 560, background: "linear-gradient(180deg,#1b1922,#15131b)", borderRadius: 32, overflow: "hidden" },
   lock: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 30, textAlign: "center" },
   intro: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: 34, textAlign: "center" },
+  howHeading: { fontFamily: FONT_DISPLAY, fontSize: 22, color: "#e8b98a", marginBottom: 4 },
+  howWho: { fontSize: 13, color: "#cfc7d4", fontStyle: "italic", lineHeight: 1.5, maxWidth: 270, marginBottom: 4 },
+  howList: { display: "flex", flexDirection: "column", gap: 16, textAlign: "left", maxWidth: 270 },
+  howLine: { fontSize: 14, color: "#ece6da", lineHeight: 1.45, display: "flex", gap: 11, alignItems: "flex-start" },
+  howNum: { fontFamily: FONT_DISPLAY, fontSize: 13, color: "#0c0b0f", background: "#e8b98a", borderRadius: 999, minWidth: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 },
   title: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: 34, textAlign: "center", background: "radial-gradient(120% 90% at 50% 30%, #2a2433 0%, #14111b 70%)" },
+  chapter: { height: "100%", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 34, textAlign: "center", background: "#0e0c12", border: "none", cursor: "pointer", animation: "fadeIn 2s ease" },
+  chapterLabel: { fontFamily: FONT_DISPLAY, fontSize: 13, letterSpacing: 4, textTransform: "uppercase", color: "#e8b98a" },
+  chapterRule: { width: 40, height: 1, background: "#5a5560", margin: "10px 0" },
+  chapterName: { fontFamily: FONT_DISPLAY, fontSize: 30, fontWeight: 700, color: "#f2ece0", letterSpacing: 1 },
+  chapterTap: { position: "absolute", bottom: 34, fontSize: 11, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase", animation: "pulse 2s infinite" },
   titleMark: { fontFamily: FONT_DISPLAY, fontSize: 34, fontWeight: 700, color: "#f2ece0", letterSpacing: 2, lineHeight: 1.05, textShadow: "0 4px 24px rgba(0,0,0,.6)" },
   titleRule: { width: 50, height: 2, background: "#e8b98a", margin: "16px 0" },
   titleSub: { fontFamily: FONT_BODY, fontSize: 14, color: "#b8b0c0", fontStyle: "italic", lineHeight: 1.5, maxWidth: 240 },
+  titleChapter: { fontFamily: FONT_DISPLAY, fontSize: 12, letterSpacing: 4, textTransform: "uppercase", color: "#e8b98a", marginTop: 10 },
+  titleLocked: { fontSize: 11, color: "#6a6472", letterSpacing: 1, marginTop: 18, border: "1px solid #2e2a36", borderRadius: 999, padding: "6px 14px" },
+  ch2Teaser: { border: "1px solid #3a3640", borderRadius: 14, padding: "16px 16px", margin: "6px 0", display: "flex", flexDirection: "column", gap: 6, background: "rgba(232,185,138,.06)" },
+  ch2Label: { fontFamily: FONT_DISPLAY, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: "#e8b98a" },
+  ch2Line: { fontFamily: FONT_DISPLAY, fontSize: 17, color: "#f2ece0", lineHeight: 1.3, fontStyle: "italic" },
+  ch2Body: { fontSize: 12.5, color: "#b8b0c0", lineHeight: 1.4 },
+  ch2Locked: { fontSize: 11, color: "#6a6472", letterSpacing: 1, marginTop: 2 },
+  revealOverlay: { position: "absolute", inset: 0, zIndex: 40, background: "#0a090d", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 30, textAlign: "center", cursor: "pointer", animation: "fadeIn 1.5s ease" },
+  revealText: { fontFamily: FONT_DISPLAY, fontSize: 52, fontWeight: 700, color: "#e8b98a", marginBottom: 18 },
+  revealLine: { fontFamily: FONT_DISPLAY, fontSize: 22, color: "#f2ece0", lineHeight: 1.3 },
+  revealSub: { fontSize: 13.5, color: "#9a93a4", marginTop: 16, fontStyle: "italic", lineHeight: 1.5, maxWidth: 240 },
+  revealTap: { position: "absolute", bottom: 34, fontSize: 11, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase", animation: "pulse 2s infinite" },
   titleHint: { position: "absolute", bottom: 30, fontSize: 11, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase" },
   introPhotoSlot: { width: "100%", height: 200, display: "flex", alignItems: "center", justifyContent: "center" },
   introPhoto: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 12, animation: "fadeIn 1.8s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
@@ -850,6 +988,7 @@ const S = {
   center: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30, textAlign: "center", overflowY: "auto" },
   endText: { fontFamily: FONT_DISPLAY, color: "#e8b98a", fontSize: 20, lineHeight: 1.4 },
   endTitle: { fontFamily: FONT_DISPLAY, color: "#f2ece0", fontSize: 13, letterSpacing: 3, textTransform: "uppercase", opacity: 0.7, marginBottom: 4 },
+  endPhoto: { width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 12, animation: "fadeIn 1.4s ease", boxShadow: "0 12px 40px rgba(0,0,0,.5)" },
   doorOverlay: { position: "absolute", inset: 0, zIndex: 25, background: "rgba(8,7,11,.97)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: 26, textAlign: "center" },
   doorKnock: { fontFamily: FONT_DISPLAY, color: "#e8b98a", fontSize: 22, letterSpacing: 1 },
   doorChoices: { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
@@ -858,6 +997,9 @@ const S = {
   homeClock: { fontFamily: FONT_DISPLAY, fontSize: 40, fontWeight: 700, color: "#f2ece0", textAlign: "center", marginTop: 8, textShadow: "0 2px 12px rgba(0,0,0,.5)", letterSpacing: 1 },
   homeDate: { textAlign: "center", color: "#cfc7d4", fontSize: 12, letterSpacing: 1, opacity: 0.75, marginBottom: 14, textShadow: "0 1px 6px rgba(0,0,0,.5)" },
   notifStack: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 },
+  coach: { textAlign: "left", background: "rgba(232,185,138,.16)", border: "1px solid #e8b98a", borderRadius: 16, padding: "12px 14px", marginBottom: 14, cursor: "pointer", width: "100%", backdropFilter: "blur(4px)" },
+  coachTitle: { fontFamily: FONT_DISPLAY, fontSize: 14, color: "#e8b98a", marginBottom: 3 },
+  coachText: { fontSize: 12.5, color: "#ece6da", lineHeight: 1.4 },
   notif: { textAlign: "left", background: "rgba(40,37,48,.85)", border: "1px solid #36323e", borderRadius: 16, padding: "9px 12px", cursor: "pointer", color: "#e8e2d4" },
   notifApp: { fontSize: 9, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.5 },
   notifFrom: { fontFamily: FONT_DISPLAY, fontSize: 13, margin: "1px 0" },
@@ -902,6 +1044,7 @@ const S = {
   postTime: { fontSize: 11, color: "#6a6472" },
   postText: { fontSize: 13, color: "#d8d1e0", lineHeight: 1.4 },
   postMeta: { fontSize: 11, color: "#8a8494", fontStyle: "italic" },
+  postImg: { width: "100%", borderRadius: 10, maxHeight: 200, objectFit: "cover", marginTop: 2 },
   thumb: { aspectRatio: "1", border: "none", padding: 0, borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#26232e", display: "flex", alignItems: "center", justifyContent: "center" },
   thumbImg: { width: "100%", height: "100%", objectFit: "cover" },
   thumbPlaceholder: { fontSize: 8, color: "#6a6472", textAlign: "center", padding: 2, lineHeight: 1.2, wordBreak: "break-word" },
