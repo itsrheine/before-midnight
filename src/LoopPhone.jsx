@@ -75,6 +75,8 @@ function LoopPhoneInner() {
   const [readThreads, setReadThreads] = useState(() => new Set());
   const [activeThreads, setActiveThreads] = useState(() => new Set()); // contacted you this loop
   const [incomingCall, setIncomingCall] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const voiceRef = useRef(null);
   const [openPhoto, setOpenPhoto] = useState(null);
   const [glitching, setGlitching] = useState(false);
   const [endingRevealed, setEndingRevealed] = useState(false);
@@ -363,7 +365,9 @@ function LoopPhoneInner() {
     tickRef.current = 0;
     firedRef.current = new Set();
     setTick(0); setThreadMsgs({}); setTyping({}); setNotifs([]);
-    setUsedReplies(new Set()); setUsedGroups(new Set()); setReadThreads(new Set()); setActiveThreads(new Set()); setIncomingCall(null); setOpenPhoto(null); setGlitching(false); setLoopFlags(new Set());
+    setUsedReplies(new Set()); setUsedGroups(new Set()); setReadThreads(new Set()); setActiveThreads(new Set()); setIncomingCall(null); setActiveCall(null); setOpenPhoto(null); setGlitching(false); setLoopFlags(new Set());
+    if (voiceRef.current) { try { voiceRef.current.pause(); } catch(e){} voiceRef.current = null; }
+    if (ringStop.current) { ringStop.current(); ringStop.current = null; }
     setView("home"); setEnding(null); setEndingRevealed(false); setAtDoor(false);
     if (hard) {
       setKnowledge(new Set()); setInventory(new Set()); setLoopCount(1); setIntroStep(0); setLoopRevealSeen(false); setPhase("title");
@@ -395,30 +399,41 @@ function LoopPhoneInner() {
   function answerCall() {
     const from = incomingCall.from;
     const callData = STORY.call?.[from];
-    setView(`thread:${from}`);
+
+    // Stop the ring and clear the incoming-call UI immediately.
+    setIncomingCall(null);
+    if (ringStop.current) { ringStop.current(); ringStop.current = null; }
+
     if (callData) {
       grant(callData.grants);
       grant(callData.grantsExtra);
-      // Drop each spoken line into the thread, staggered so it reads like a call.
-      if (callData.audio) {
+
+      if (callData.audio && !muted) {
+        // Show an in-call screen while the voice plays.
+        setActiveCall({ from, playing: true });
         const callAudio = new Audio(callData.audio);
-        callAudio.play().catch(() => {});
-      } else {
-        (callData.lines || []).forEach((line, i) => {
-          setTimeout(() => incoming(from, line), i * (TYPING_MS + 600));
-        });
+        voiceRef.current = callAudio;
+        callAudio.volume = 1;
+        callAudio.play().catch((err) => { console.error("Call audio failed:", err); endCallToThread(from, callData); });
+        callAudio.onended = () => endCallToThread(from, callData);
+        return;
       }
-    } else {
-      // fallback: auto-play first reply
-      const auto = STORY.threads[from]?.replies?.[0];
-      if (auto) { grant(auto.grants); incoming(from, auto.response || "..."); }
     }
-    setIncomingCall(null);
+
+    setView(`thread:${from}`);
+  }
+
+  // When the voice note finishes (or is skipped), drop into the thread with replies.
+  function endCallToThread(from, callData) {
+    setActiveCall(null);
+    voiceRef.current = null;
+    setView(`thread:${from}`);
+    if (callData?.afterVoice) incoming(from, callData.afterVoice);
   }
 
   function declineCall() {
     const from = incomingCall.from;
-    // Missed call leaves a text so you can still reach them this loop.
+    if (ringStop.current) { ringStop.current(); ringStop.current = null; }
     const msg = STORY.call?.[from]?.missedText || "Missed call. Call me back, please.";
     incoming(from, msg);
     setIncomingCall(null);
@@ -635,6 +650,25 @@ function LoopPhoneInner() {
                       <div style={S.callBtns}>
                         <button style={{ ...S.callBtn, background: "#b34a3a" }} onClick={declineCall}>Decline</button>
                         <button style={{ ...S.callBtn, background: "#5a8a6b" }} onClick={answerCall}>Answer</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeCall && (
+                    <div style={S.callOverlay}>
+                      <div style={S.callName}>{nameOf(activeCall.from)}</div>
+                      <div style={S.callSub}>connected</div>
+                      <div style={S.callWave} className="callwave"><span/><span/><span/><span/><span/></div>
+                      <div style={S.callBtns}>
+                        <button
+                          style={{ ...S.callBtn, background: "#b34a3a" }}
+                          onClick={() => {
+                            if (voiceRef.current) { voiceRef.current.pause(); voiceRef.current.currentTime = 0; }
+                            const cd = STORY.call?.[activeCall.from];
+                            endCallToThread(activeCall.from, cd);
+                          }}>
+                          End call
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1052,6 +1086,7 @@ const S = {
   callOverlay: { position: "absolute", inset: 0, background: "rgba(12,11,15,.96)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 },
   callName: { fontFamily: FONT_DISPLAY, fontSize: 30, color: "#f2ece0" },
   callSub: { color: "#9a93a4", fontSize: 13, marginBottom: 40 },
+  callWave: { display: "flex", gap: 5, alignItems: "center", height: 40, marginBottom: 40 },
   callBtns: { display: "flex", gap: 40 },
   callBtn: { width: 66, height: 66, borderRadius: 999, border: "none", color: "#fff", fontSize: 13, cursor: "pointer" },
   homeBar: { position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", width: 120, height: 5, borderRadius: 999, background: "#5a5560", border: "none", cursor: "pointer" },
@@ -1106,6 +1141,10 @@ button:hover { filter: brightness(1.08); }
 .dots i { width:6px; height:6px; border-radius:999px; background:#9a93a4; display:inline-block; animation: blink 1.2s infinite; }
 .dots i:nth-child(2){ animation-delay:.2s } .dots i:nth-child(3){ animation-delay:.4s }
 @keyframes blink { 0%,60%,100%{opacity:.25; transform:translateY(0)} 30%{opacity:1; transform:translateY(-3px)} }
+.callwave span { width:4px; height:10px; border-radius:999px; background:#e8b98a; display:inline-block; animation: wave 1s infinite ease-in-out; }
+.callwave span:nth-child(2){ animation-delay:.15s } .callwave span:nth-child(3){ animation-delay:.3s }
+.callwave span:nth-child(4){ animation-delay:.45s } .callwave span:nth-child(5){ animation-delay:.6s }
+@keyframes wave { 0%,100%{height:8px; opacity:.5} 50%{height:30px; opacity:1} }
 .lids { position:absolute; inset:0; z-index:20; pointer-events:none;
   background: linear-gradient(#000 50%, transparent 50%, transparent 50%, #000 50%);
   background-size: 100% 200%; background-position: 0 100%;

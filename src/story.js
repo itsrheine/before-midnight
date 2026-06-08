@@ -99,6 +99,7 @@ export const MEMORY_LABELS = {
   saw_unknown_warning: "A stranger warned me about Mara",
   knew_lena: "The stranger is Lena. I knew her.",
   dad_warned: "Dad knows her family",
+  dad_protect: "Dad hid the truth to protect me",
   saw_old_photo: "Lena and I were together, once",
   named_lena: "I said her name to her",
   knows_sam: "My best friend Sam died that night",
@@ -237,11 +238,21 @@ export const STORY = {
     dad: {
       contact: "dad",
       replies: [
+        { id: "r_dad_protect", text: "What do you mean, protect me?", group: "dad_react",
+          requires: ["dad_warned"], grants: { knowledge: "dad_protect" },
+          response: "From what really happened that night. From what it would do to you to remember. I made a choice for you. I'm not sure it was the right one." },
+        { id: "r_dad_whatsam", text: "What happened to Sam?", group: "dad_react",
+          requires: ["dad_warned"], grants: { knowledge: "knows_sam", item: "item_call_log" },
+          response: "He didn't make it. That's all I let myself say for four years. I'm sending you the call log from that night. Look at the times." },
+        { id: "r_dad_whynot", text: "Why didn't you tell me?", group: "dad_react",
+          requires: ["dad_warned"], grants: { knowledge: "dad_protect" },
+          response: "Because every time I picked up the phone to do it, I saw your face at the funeral and I put it back down. I'm sorry. I'm so sorry." },
         { id: "r_dad_hi", text: "Dad? It's late, everything ok?",
+          forbids: ["dad_warned"],
           grants: { knowledge: "knew_lena" }, sets: { knowledge: "dad_warned" },
           response: "The number texting you is Lena. Mara's sister. You knew her. And you need to remember Sam." },
         { id: "r_dad_sam", text: "What happened to Sam after the crash?",
-          requires: ["knew_lena"], grants: { knowledge: "knows_sam", item: "item_call_log" },
+          requires: ["knew_lena"], forbids: ["knows_sam"], grants: { knowledge: "knows_sam", item: "item_call_log" },
           response: "He didn't make it. That's all I let myself say for four years. I'm sending you the call log from that night. Look at the times." },
         { id: "r_dad_alibi", text: "Where were you that night, Dad?",
           requires: ["knows_sam"], grants: { knowledge: "alibi_dad" },
@@ -288,7 +299,10 @@ export const STORY = {
 
   call: {
     dad: {
-      audio: "/Dad%201.mp3", grants: { knowledge: "knew_lena" }, grantsExtra: { knowledge: "dad_warned" },
+      audio: "/audio/Dad 1.mp3",
+      grants: { knowledge: "knew_lena" },
+      grantsExtra: { knowledge: "dad_warned" },
+      afterVoice: "I can't say the rest out loud. Ask me. I'll answer over text.",
       missedText: "You let it ring. Call me back. It's about Mara's family, and about Sam. It can't wait.",
       lines: [
         "Son. The number texting you isn't a stranger. It's Lena. Mara's sister.",
