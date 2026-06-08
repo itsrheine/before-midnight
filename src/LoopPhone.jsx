@@ -230,50 +230,73 @@ function LoopPhoneInner() {
 
   /* --- (live clock now shows a fixed in-fiction time; no real-clock tick needed) --- */
 
-  /* --- PHASE: fast-forward — quick race to the brake minute, then crawl seconds to the deadline --- */
+  /* --- PHASE: fast-forward — quick race to 11:24, then crawl to 11:25 --- */
   useEffect(() => {
     if (phase !== "fastforward") return;
-    // DEADLINE_LABEL is e.g. "11:30". Start ~2 min before, brake 1 min before.
-    const [dh, dm] = DEADLINE_LABEL.split(":").map(Number);
-    const brakeMin = dm === 0 ? 59 : dm - 1;
-    const brakeHour = dm === 0 ? (dh === 1 ? 12 : dh - 1) : dh;
-    let h = brakeHour, m = brakeMin - 1;
+
+    const brakeHour = 11;
+    const brakeMin = 24;
+
+    let h = brakeHour;
+    let m = brakeMin - 1;
     let delay = 110;
     let stop = false;
 
     const crawlSeconds = (sec) => {
       if (stop) return;
-      setFfClock(`${brakeHour}:${brakeMin.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`);
-      if (sec >= 60) {
-        setFfClock(DEADLINE_LABEL);
-        setPhase("waking");
+
+      setFfClock(
+        `${brakeHour}:${brakeMin
+          .toString()
+          .padStart(2, "0")}:${sec.toString().padStart(2, "0")}`
+      );
+
+      if (sec >= 59) {
+        setTimeout(() => {
+          setFfClock("11:25");
+          setPhase("waking");
+        }, 1200);
+
         return;
       }
-      const pause = 320 + (sec - 55) * 300; // each of the last 5 seconds lingers longer
+
+      const pause = 320 + (sec - 55) * 300;
       setTimeout(() => crawlSeconds(sec + 1), pause);
     };
 
     const raceMinutes = () => {
       if (stop) return;
+
       m += 1;
-      if (m > 59) { m = 0; h = (h % 12) + 1; }
-      const label = `${h}:${m.toString().padStart(2, "0")}`;
-      setFfClock(label);
+
+      if (m > 59) {
+        m = 0;
+        h = (h % 12) + 1;
+      }
+
+      setFfClock(`${h}:${m.toString().padStart(2, "0")}`);
+
       if (h === brakeHour && m === brakeMin) {
         setTimeout(() => crawlSeconds(55), 450);
         return;
       }
+
       delay = delay < 40 ? delay : delay * 0.9;
       setTimeout(raceMinutes, delay);
     };
+
     raceMinutes();
-    return () => { stop = true; };
+
+    return () => {
+      stop = true;
+    };
   }, [phase]);
 
   /* --- PHASE: waking — eyes-opening blink, then into the loop --- */
   useEffect(() => {
     if (phase !== "waking") return;
-    const t = setTimeout(() => setPhase("loop"), 2200);
+    const t = setTimeout(() => setPhase
+    ("loop"), 2200);
     return () => clearTimeout(t);
   }, [phase]);
 
@@ -377,9 +400,14 @@ function LoopPhoneInner() {
       grant(callData.grants);
       grant(callData.grantsExtra);
       // Drop each spoken line into the thread, staggered so it reads like a call.
-      (callData.lines || []).forEach((line, i) => {
-        setTimeout(() => incoming(from, line), i * (TYPING_MS + 600));
-      });
+      if (callData.audio) {
+        const callAudio = new Audio(callData.audio);
+        callAudio.play().catch(() => {});
+      } else {
+        (callData.lines || []).forEach((line, i) => {
+          setTimeout(() => incoming(from, line), i * (TYPING_MS + 600));
+        });
+      }
     } else {
       // fallback: auto-play first reply
       const auto = STORY.threads[from]?.replies?.[0];
@@ -415,12 +443,12 @@ function LoopPhoneInner() {
       <div style={S.phone} onClickCapture={(e) => { const t = e.target; if (t && typeof t.closest === "function" && t.closest("button")) tap(); }}>
         <div style={S.notch} />
         <div style={S.statusbar}>
-          <span>{
-            phase === "loop" ? deadlinePlus(tick)
-            : phase === "fastforward" ? ffClock
-            : phase === "waking" ? DEADLINE_LABEL
-            : START_LABEL
-          }</span>
+        <span>{
+          phase === "loop" ? deadlinePlus(tick)
+          : phase === "fastforward" ? ffClock
+          : phase === "waking" ? START_LABEL
+          : START_LABEL
+        }</span>
           <span style={{ letterSpacing: 1, color: loopCount >= 4 ? "#b34a3a" : undefined }}>
             {inLoop ? (loopCount >= 6 ? "LOOP ∞" : loopCount >= 4 ? `LOOP ${loopCount}̷${loopCount * 47}` : `LOOP ${loopCount}`) : ""}
           </span>
@@ -528,7 +556,7 @@ function LoopPhoneInner() {
           {/* COLD OPEN — waking (eye opening) */}
           {phase === "waking" && (
             <div style={S.lock}>
-              <div style={{ ...S.lockTime, color: "#e8b98a" }}>{DEADLINE_LABEL}</div>
+              <div style={{ ...S.lockTime, color: "#e8b98a" }}>{"11:25"}</div>
               <div className="lids" />
             </div>
           )}
@@ -619,8 +647,8 @@ function LoopPhoneInner() {
                         : { backgroundImage: "radial-gradient(120% 80% at 50% 18%, #2c2838 0%, #1a1722 55%, #121019 100%)" }),
                     }}>
                       {/* soft clock/date overlay on the wallpaper, like a real home screen */}
-                      <div style={S.homeClock}>{fmt(Math.max(0, LOOP_LENGTH - tick))}</div>
-                      <div style={S.homeDate}>until the knock</div>
+                      <div style={S.homeClock}>{deadlinePlus(tick).slice(0, 5)}</div>
+                      <div style={S.homeDate}>until the knock at {DEADLINE_LABEL}</div>
                       {loopCount === 1 && showCoach && (
                         <button style={S.coach} onClick={() => setShowCoach(false)}>
                           <div style={S.coachTitle}>What do I do?</div>

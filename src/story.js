@@ -27,9 +27,9 @@
      Sam died. The alibis contradict the evidence. One lie cracks it.
    ============================================================ */
 
-export const LOOP_LENGTH = 300;           // 5 minutes per loop (11:28 -> 11:30 knock)
-export const START_LABEL = "11:25";       // clock when the loop begins
-export const DEADLINE_LABEL = "11:30";    // the knock happens here
+export const LOOP_LENGTH = 300;      // 5 minutes
+export const START_LABEL = "11:24";
+export const DEADLINE_LABEL = "11:30";
 export const TYPING_MS = 1500;
 export const WALLPAPER = "";
 
@@ -288,7 +288,7 @@ export const STORY = {
 
   call: {
     dad: {
-      grants: { knowledge: "knew_lena" }, grantsExtra: { knowledge: "dad_warned" },
+      audio: "/Dad%201.mp3", grants: { knowledge: "knew_lena" }, grantsExtra: { knowledge: "dad_warned" },
       missedText: "You let it ring. Call me back. It's about Mara's family, and about Sam. It can't wait.",
       lines: [
         "Son. The number texting you isn't a stranger. It's Lena. Mara's sister.",
