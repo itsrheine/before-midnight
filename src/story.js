@@ -300,6 +300,8 @@ export const STORY = {
   call: {
     dad: {
       audio: "/audio/Dad 1.mp3",
+      missedAudio: "/audio/Dadvoicenote.mp3",
+      missedFollowup: "Call me back when you hear this. And son... be careful tonight.",
       grants: { knowledge: "knew_lena" },
       grantsExtra: { knowledge: "dad_warned" },
       afterVoice: "I can't say the rest out loud. Ask me. I'll answer over text.",

@@ -76,6 +76,7 @@ function LoopPhoneInner() {
   const [activeThreads, setActiveThreads] = useState(() => new Set()); // contacted you this loop
   const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
+  const [playingVM, setPlayingVM] = useState(null);
   const voiceRef = useRef(null);
   const [openPhoto, setOpenPhoto] = useState(null);
   const [glitching, setGlitching] = useState(false);
@@ -367,6 +368,7 @@ function LoopPhoneInner() {
     setTick(0); setThreadMsgs({}); setTyping({}); setNotifs([]);
     setUsedReplies(new Set()); setUsedGroups(new Set()); setReadThreads(new Set()); setActiveThreads(new Set()); setIncomingCall(null); setActiveCall(null); setOpenPhoto(null); setGlitching(false); setLoopFlags(new Set());
     if (voiceRef.current) { try { voiceRef.current.pause(); } catch(e){} voiceRef.current = null; }
+    setPlayingVM(null);
     if (ringStop.current) { ringStop.current(); ringStop.current = null; }
     setView("home"); setEnding(null); setEndingRevealed(false); setAtDoor(false);
     if (hard) {
@@ -423,6 +425,30 @@ function LoopPhoneInner() {
     setView(`thread:${from}`);
   }
 
+  // Play (or stop) a voicemail bubble. Grants the call's knowledge on listen.
+  function playVoicemail(src) {
+    if (muted) return;
+    if (playingVM === src && voiceRef.current) {
+      voiceRef.current.pause(); voiceRef.current = null; setPlayingVM(null); return;
+    }
+    if (voiceRef.current) { try { voiceRef.current.pause(); } catch (e) {} }
+    const a = new Audio(src);
+    voiceRef.current = a;
+    a.play().then(() => {
+      setPlayingVM(src);
+      const cd = Object.values(STORY.call || {}).find((c) => c.missedAudio === src);
+      if (cd) { grant(cd.grants); grant(cd.grantsExtra); }
+    }).catch((e) => console.error("Voicemail failed:", e));
+    a.onended = () => {
+      setPlayingVM(null); voiceRef.current = null;
+      const cd = Object.entries(STORY.call || {}).find(([, c]) => c.missedAudio === src);
+      if (cd && cd[1].missedFollowup && !has(`vm_done_${cd[0]}`)) {
+        setFlag({ loopFlag: `vm_done_${cd[0]}` });
+        incoming(cd[0], cd[1].missedFollowup);
+      }
+    };
+  }
+
   // When the voice note finishes (or is skipped), drop into the thread with replies.
   function endCallToThread(from, callData) {
     setActiveCall(null);
@@ -434,8 +460,18 @@ function LoopPhoneInner() {
   function declineCall() {
     const from = incomingCall.from;
     if (ringStop.current) { ringStop.current(); ringStop.current = null; }
-    const msg = STORY.call?.[from]?.missedText || "Missed call. Call me back, please.";
-    incoming(from, msg);
+    const cd = STORY.call?.[from];
+    // Leave a playable voicemail if there's one, otherwise a plain missed text.
+    if (cd?.missedAudio) {
+      setActiveThreads((s) => new Set(s).add(from));
+      setThreadMsgs((m) => ({
+        ...m,
+        [from]: [...(m[from] || []), { from, voicemail: cd.missedAudio, text: "Voicemail" }],
+      }));
+      setNotifs((n) => [...n, { key: `vm_${from}_${Date.now()}`, app: "messages", from, text: "Voicemail" }]);
+    } else {
+      incoming(from, cd?.missedText || "Missed call. Call me back, please.");
+    }
     setIncomingCall(null);
   }
 
@@ -793,6 +829,17 @@ function LoopPhoneInner() {
                           {msgs.map((m, i) => {
                             const isGlitchThread = id === "sam" || id === "self";
                             const base = m.from === "you" ? S.bubbleMe : (isGlitchThread ? S.bubbleGlitch : S.bubbleThem);
+                            if (m.voicemail) {
+                              return (
+                                <button key={i} style={S.voicemail} onClick={() => playVoicemail(m.voicemail)}>
+                                  <span style={S.vmPlay}>{playingVM === m.voicemail ? "❚❚" : "▶"}</span>
+                                  <span style={S.vmWave} className={`vmwave-bars ${playingVM === m.voicemail ? "vmwave" : ""}`}>
+                                    <span/><span/><span/><span/><span/>
+                                  </span>
+                                  <span style={S.vmLabel}>Voicemail</span>
+                                </button>
+                              );
+                            }
                             return <div key={i} style={base} className={isGlitchThread ? "flicker" : ""}>{m.text}</div>;
                           })}
                           {typing[id] && (
@@ -1078,6 +1125,10 @@ const S = {
   msgs: { flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 8 },
   placeholder: { color: "#6a6472", fontSize: 12, textAlign: "center", fontStyle: "italic", padding: 12 },
   bubbleThem: { alignSelf: "flex-start", maxWidth: "78%", background: "#2c2935", color: "#ece6da", padding: "9px 13px", borderRadius: "16px 16px 16px 4px", fontSize: 13.5, lineHeight: 1.35 },
+  voicemail: { alignSelf: "flex-start", maxWidth: "78%", background: "#2c2935", border: "none", color: "#ece6da", padding: "10px 14px", borderRadius: "16px 16px 16px 4px", fontSize: 13, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
+  vmPlay: { fontSize: 13, color: "#e8b98a", minWidth: 14 },
+  vmWave: { display: "flex", gap: 3, alignItems: "center", height: 18, flex: 1 },
+  vmLabel: { fontSize: 11, color: "#9a93a4", letterSpacing: 0.5 },
   bubbleGlitch: { alignSelf: "flex-start", maxWidth: "82%", background: "#1a0f12", color: "#d98a8a", padding: "9px 13px", borderRadius: "16px 16px 16px 4px", fontSize: 13.5, lineHeight: 1.4, border: "1px solid #5a2a2a", fontFamily: "monospace", letterSpacing: 0.3 },
   bubbleMe: { alignSelf: "flex-end", maxWidth: "78%", background: "#e8b98a", color: ink, padding: "9px 13px", borderRadius: "16px 16px 4px 16px", fontSize: 13.5, lineHeight: 1.35 },
   replies: { borderTop: "1px solid #2a2630", padding: 10, display: "flex", flexDirection: "column", gap: 7, background: "rgba(20,18,24,.6)" },
@@ -1145,6 +1196,11 @@ button:hover { filter: brightness(1.08); }
 .callwave span:nth-child(2){ animation-delay:.15s } .callwave span:nth-child(3){ animation-delay:.3s }
 .callwave span:nth-child(4){ animation-delay:.45s } .callwave span:nth-child(5){ animation-delay:.6s }
 @keyframes wave { 0%,100%{height:8px; opacity:.5} 50%{height:30px; opacity:1} }
+.vmwave-bars span { width:3px; height:6px; border-radius:999px; background:#6a6472; display:inline-block; }
+.vmwave span { background:#e8b98a; animation: vmw .8s infinite ease-in-out; }
+.vmwave span:nth-child(2){ animation-delay:.1s } .vmwave span:nth-child(3){ animation-delay:.2s }
+.vmwave span:nth-child(4){ animation-delay:.3s } .vmwave span:nth-child(5){ animation-delay:.4s }
+@keyframes vmw { 0%,100%{height:5px} 50%{height:16px} }
 .lids { position:absolute; inset:0; z-index:20; pointer-events:none;
   background: linear-gradient(#000 50%, transparent 50%, transparent 50%, #000 50%);
   background-size: 100% 200%; background-position: 0 100%;
