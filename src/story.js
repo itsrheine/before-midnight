@@ -148,8 +148,47 @@ export const STORY = {
     theo: { name: "Theo", color: "#8a9bb0" },
     sam: { name: "Sam", color: "#3a3a42" },
     self: { name: "You", color: "#2a1a1a" },
+    // --- ambient / background contacts (lived-in clutter, not story-critical) ---
+    jordan: { name: "Jordan", color: "#6b8a9b" },
+    pizza: { name: "Tony's Pizza", color: "#b0764a" },
+    bank: { name: "Verafone Alerts", color: "#5a7a5a" },
+    groupchat: { name: "The Boys 🍻", color: "#9b7a5a" },
+    dentist: { name: "Bright Smile Dental", color: "#7a9bb0" },
+    spam: { name: "+1 (888) 204-9931", color: "#6b6b72" },
   },
   contactRename: { lena: { when: "knew_lena", name: "Lena" } },
+
+  /* Ambient threads: pre-existing conversations from the last few days.
+     Always visible, read-only, give the phone a lived-in feel and camouflage
+     the real leads. Each is { contact, time, msgs: [{from, text}] }. */
+  ambient: [
+    { id: "jordan", time: "Mon", msgs: [
+      { from: "jordan", text: "yo did you ever send the deposit for the venue?" },
+      { from: "you", text: "yeah this morning. they confirmed" },
+      { from: "jordan", text: "perfect. mara's gonna lose it (good way) 😄" },
+      { from: "jordan", text: "ok get some sleep weirdo" },
+    ]},
+    { id: "groupchat", time: "Sun", msgs: [
+      { from: "groupchat", text: "Marcus: bachelor party locked. nobody tell the bride" },
+      { from: "groupchat", text: "Devon: i'm bringing the speaker" },
+      { from: "groupchat", text: "Marcus: NOT the speaker from last time" },
+      { from: "you", text: "lmao please no" },
+    ]},
+    { id: "pizza", time: "Fri", msgs: [
+      { from: "pizza", text: "Your order #4471 is out for delivery! 🍕" },
+      { from: "pizza", text: "Rate your experience: reply 1-5" },
+    ]},
+    { id: "bank", time: "Thu", msgs: [
+      { from: "bank", text: "Verafone: A charge of $312.00 to LUXE BRIDAL was approved on your card ending 4419." },
+      { from: "bank", text: "Reply STOP to opt out of alerts." },
+    ]},
+    { id: "dentist", time: "Wed", msgs: [
+      { from: "dentist", text: "Reminder: cleaning appt Thursday 2:00 PM. Reply C to confirm." },
+    ]},
+    { id: "spam", time: "Tue", msgs: [
+      { from: "spam", text: "FINAL NOTICE: Your vehicle's extended warranty is about to expire. Press 1 to speak to a specialist." },
+    ]},
+  ],
 
   events: [
     { id: "ev_mara_open", time: 8, type: "message", from: "mara",

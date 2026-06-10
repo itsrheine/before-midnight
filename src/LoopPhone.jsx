@@ -801,13 +801,13 @@ function LoopPhoneInner() {
                           <span>Messages</span>
                         </header>
                         <div style={S.convList}>
-                          {active.length === 0 && (
+                          {active.length === 0 && (STORY.ambient || []).length === 0 && (
                             <div style={S.placeholder}>No conversations yet.</div>
                           )}
                           {active.map((id) => {
                             const msgs = threadMsgs[id] || [];
                             const last = msgs[msgs.length - 1];
-                            const preview = typing[id] ? "typing…" : (last ? last.text : "");
+                            const preview = typing[id] ? "typing…" : (last ? (last.text || (last.voicemail ? "Voicemail" : last.evidence ? "Attachment" : "")) : "");
                             const unread = (msgs.some((m) => m.from === id) && !readThreads.has(id)) || typing[id];
                             return (
                               <button key={id} style={S.conv} onClick={() => openThread(id)}>
@@ -820,6 +820,24 @@ function LoopPhoneInner() {
                                     {unread && <span style={S.convDot} />}
                                   </span>
                                   <span style={S.convPreview}>{preview}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                          {/* Ambient background conversations (lived-in clutter, read-only) */}
+                          {(STORY.ambient || []).map((a) => {
+                            const last = a.msgs[a.msgs.length - 1];
+                            return (
+                              <button key={a.id} style={S.conv} onClick={() => setView(`ambient:${a.id}`)}>
+                                <span style={{ ...S.convAvatar, background: C[a.id]?.color || "#6b7280" }}>
+                                  {nameOf(a.id)[0]}
+                                </span>
+                                <span style={S.convBody}>
+                                  <span style={S.convTop}>
+                                    <span style={S.convName}>{nameOf(a.id)}</span>
+                                    <span style={S.convTime}>{a.time}</span>
+                                  </span>
+                                  <span style={S.convPreview}>{last ? last.text : ""}</span>
                                 </span>
                               </button>
                             );
@@ -899,6 +917,26 @@ function LoopPhoneInner() {
 
                   {/* JOURNAL — your character's running notes; replaces the old side panel */}
                   {/* SETTINGS */}
+                  {view.startsWith("ambient:") && (() => {
+                    const aid = view.split(":")[1];
+                    const a = (STORY.ambient || []).find((x) => x.id === aid);
+                    if (!a) return null;
+                    return (
+                      <div style={S.thread}>
+                        <header style={S.threadHead}>
+                          <button style={S.back} onClick={() => setView("messages")}>‹</button>
+                          <span>{nameOf(aid)}</span>
+                        </header>
+                        <div style={S.msgs}>
+                          {a.msgs.map((m, i) => (
+                            <div key={i} style={m.from === "you" ? S.bubbleMe : S.bubbleThem}>{m.text}</div>
+                          ))}
+                          <div style={S.ambientNote}>Older messages</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {view === "settings" && (
                     <div style={S.thread}>
                       <header style={S.threadHead}>
@@ -1204,6 +1242,8 @@ const S = {
   convName: { fontFamily: FONT_DISPLAY, fontSize: 14.5, color: "#ece6da" },
   convDot: { width: 8, height: 8, borderRadius: 999, background: "#e0584a" },
   convPreview: { fontSize: 12.5, color: "#8a8494", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 210 },
+  convTime: { fontSize: 11, color: "#6a6472", marginLeft: "auto" },
+  ambientNote: { textAlign: "center", fontSize: 10.5, color: "#5a5560", letterSpacing: 1, textTransform: "uppercase", margin: "10px 0 4px" },
   post: { textAlign: "left", background: "#211f29", border: "1px solid #2e2a36", borderRadius: 14, padding: "11px 13px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 6 },
   postHead: { display: "flex", alignItems: "center", gap: 7 },
   postAvatar: { width: 22, height: 22, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontFamily: FONT_DISPLAY, color: "#fff" },
