@@ -480,16 +480,16 @@ export const STORY = {
 };
 
 export const PHOTO_SRC = {
-  mara_laughing: "/photos/mara_laughing.png",
-  us_recent: "/photos/us_recent.png",
+  mara_laughing: "/photos/mara_laughing.jpg",
+  us_recent: "/photos/us_recent.jpg",
   map_pin: "/photos/map_pin.png",
   note: "/photos/note.png",
   front_door: "/photos/front_door.png",
   street_sign: "/photos/street_sign.png",
-  old_us: "/photos/old_us.png",
+  old_us: "/photos/old_us.jpg",
   accident: "/photos/accident.png",
   sonogram: "/photos/sonogram.png",
-  sisters_kids: "/photos/sisters_kids.png",
+  sisters_kids: "/photos/sisters_kids.jpg",
   // characters
   sam: "/photos/sam.png",
   sam_alive: "/photos/sam_alive.png",
