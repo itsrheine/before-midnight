@@ -869,7 +869,7 @@ function LoopPhoneInner() {
                             if (m.evidence) {
                               const evPhoto = EVIDENCE_PHOTO[m.evidence];
                               return (
-                                <button key={i} style={S.evCard} onClick={() => { setView("app:evidence"); }}>
+                                <button key={i} style={S.evCard} onClick={() => { setView("app:vault"); }}>
                                   {evPhoto && PHOTO_SRC[evPhoto] && (
                                     <img src={PHOTO_SRC[evPhoto]} alt="" style={S.evCardImg} />
                                   )}
@@ -955,6 +955,17 @@ function LoopPhoneInner() {
                   {view.startsWith("app:") && (() => {
                     const id = view.split(":")[1];
                     const a = STORY.apps[id];
+                    if (!a) {
+                      return (
+                        <div style={S.thread}>
+                          <header style={S.threadHead}>
+                            <button style={S.back} onClick={() => setView("home")}>‹</button>
+                            <span>Not found</span>
+                          </header>
+                          <div style={S.placeholder}>This app isn't available.</div>
+                        </div>
+                      );
+                    }
                     const items = (a.items || []).filter((it) => !it.requires || it.requires.every((k) => has(k)));
                     const hiddenCount = (a.items || []).length - items.length;
 
