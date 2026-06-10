@@ -33,6 +33,18 @@ export default function LoopPhone() {
 
 /* ---------- ENGINE ---------- */
 
+// Which evidence items have a viewable photo (others show as a labeled card).
+const EVIDENCE_PHOTO = {
+  item_crash_photo: "accident",
+  item_location_ping: "map_pin",
+  item_old_photo: "old_us",
+  item_voicemail: "",        // audio, no image
+  item_call_log: "",
+  item_receipt: "",
+  item_deleted_msgs: "",
+  item_hospital_log: "",
+};
+
 function fmt(t) {
   const m = Math.floor(t / 60);
   const s = Math.floor(t % 60);
@@ -231,6 +243,18 @@ function LoopPhoneInner() {
     }, TYPING_MS);
   }, []);
 
+  // Drop an evidence attachment card into a thread (after a short delay so it lands
+  // right after the sender's message). itemId maps to ITEM_LABELS / optional photo.
+  const incomingEvidence = useCallback((threadId, itemId) => {
+    setTimeout(() => {
+      setThreadMsgs((m) => ({ ...m, [threadId]: [...(m[threadId] || []), { from: threadId, evidence: itemId }] }));
+      setReadThreads((s) => {
+        if (viewRef.current === `thread:${threadId}`) return s;
+        const next = new Set(s); next.delete(threadId); return next;
+      });
+    }, TYPING_MS + 600);
+  }, []);
+
   /* --- (live clock now shows a fixed in-fiction time; no real-clock tick needed) --- */
 
   /* --- PHASE: fast-forward — quick race to 11:24, then crawl to 11:25 --- */
@@ -396,6 +420,8 @@ function LoopPhoneInner() {
     setThreadMsgs((m) => ({ ...m, [threadId]: [...(m[threadId] || []), { from: "you", text: reply.text }] }));
     grant(reply.grants); setFlag(reply.sets);
     if (reply.response) incoming(threadId, reply.response);
+    // If this reply hands over a piece of evidence, also drop it into the thread.
+    if (reply.grants && reply.grants.item) incomingEvidence(threadId, reply.grants.item);
   }
 
   function answerCall() {
@@ -840,6 +866,18 @@ function LoopPhoneInner() {
                                 </button>
                               );
                             }
+                            if (m.evidence) {
+                              const evPhoto = EVIDENCE_PHOTO[m.evidence];
+                              return (
+                                <button key={i} style={S.evCard} onClick={() => { setView("app:evidence"); }}>
+                                  {evPhoto && PHOTO_SRC[evPhoto] && (
+                                    <img src={PHOTO_SRC[evPhoto]} alt="" style={S.evCardImg} />
+                                  )}
+                                  <div style={S.evCardLabel}>{ITEM_LABELS[m.evidence] || "Evidence"}</div>
+                                  <div style={S.evCardHint}>Saved to Evidence · tap to open</div>
+                                </button>
+                              );
+                            }
                             return <div key={i} style={base} className={isGlitchThread ? "flicker" : ""}>{m.text}</div>;
                           })}
                           {typing[id] && (
@@ -1129,6 +1167,10 @@ const S = {
   vmPlay: { fontSize: 13, color: "#e8b98a", minWidth: 14 },
   vmWave: { display: "flex", gap: 3, alignItems: "center", height: 18, flex: 1 },
   vmLabel: { fontSize: 11, color: "#9a93a4", letterSpacing: 0.5 },
+  evCard: { alignSelf: "flex-start", maxWidth: "80%", background: "#221f29", border: "1px solid #3a3640", borderRadius: 14, padding: 8, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 6 },
+  evCardImg: { width: "100%", maxHeight: 150, objectFit: "cover", borderRadius: 9 },
+  evCardLabel: { fontSize: 13, color: "#ece6da", fontWeight: 600, padding: "0 2px" },
+  evCardHint: { fontSize: 10.5, color: "#e8b98a", letterSpacing: 0.3, padding: "0 2px 2px" },
   bubbleGlitch: { alignSelf: "flex-start", maxWidth: "82%", background: "#1a0f12", color: "#d98a8a", padding: "9px 13px", borderRadius: "16px 16px 16px 4px", fontSize: 13.5, lineHeight: 1.4, border: "1px solid #5a2a2a", fontFamily: "monospace", letterSpacing: 0.3 },
   bubbleMe: { alignSelf: "flex-end", maxWidth: "78%", background: "#e8b98a", color: ink, padding: "9px 13px", borderRadius: "16px 16px 4px 16px", fontSize: 13.5, lineHeight: 1.35 },
   replies: { borderTop: "1px solid #2a2630", padding: 10, display: "flex", flexDirection: "column", gap: 7, background: "rgba(20,18,24,.6)" },

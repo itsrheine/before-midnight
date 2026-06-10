@@ -401,7 +401,7 @@ export const STORY = {
           requires: ["saw_unknown_warning"] },
         { id: "f_theo_memorial", author: "theo", time: "today",
           text: "4 years without you brother. wish i'd done things different that night. 💔",
-          photo: "old_us",
+          photo: "sam_alive",
           meta: "📍 tagged: Alder Court · 11:55 PM",
           requires: ["knows_sam"], grants: { knowledge: "theo_near_scene" } },
         { id: "f_old_throwback", author: "theo", time: "4y",
@@ -449,45 +449,57 @@ export const STORY = {
 
   endings: {
     stranger_at_the_door: {
-      title: "The Stranger at the Door", tone: "loop", photo: "front_door",
+      title: "The Stranger at the Door", tone: "loop", photo: "ending_stranger",
       text: "You open it braced for a threat, and find a woman with her hand raised to knock. Behind her, a shape moves in the dark. You never learned who. The screen goes black. The phone lights up again. 11:30.",
     },
     believe_the_stranger: {
-      title: "Believe the Stranger", tone: "loop", photo: "front_door",
+      title: "Believe the Stranger", tone: "loop", photo: "ending_believe",
       text: "You let the knock fade. In the morning they find Lena at the bottom of your stairs. \"Accident,\" the report says. You survive the night having saved no one. The phone lights up again.",
     },
     dont_pick_up: {
-      title: "A Kindness in the Dark", tone: "loop", photo: "front_door",
+      title: "A Kindness in the Dark", tone: "loop", photo: "ending_kindness",
       text: "You open the door gently and pull her in out of instinct. It buys a few minutes. But you didn't know what was coming, and the night isn't done with you yet. 11:30, again.",
     },
     took_the_blow: {
-      title: "Took the Blow", tone: "final", photo: "accident",
+      title: "Took the Blow", tone: "final", photo: "ending_blow",
       text: "You yank Lena inside as the figure lunges. You don't see who it is. You only feel it. Lena lives. You don't get to know if you do. But the truth she carried is finally safe with someone, and the loop, at last, goes quiet.",
     },
     wrong_accusation: {
-      title: "The Wrong Name", tone: "loop", photo: "note",
+      title: "The Wrong Name", tone: "loop", photo: "ending_wrongname",
       text: "You're so sure. You turn your back on the door to make the accusation, and behind you, the knock never comes, because it already happened. You blamed the wrong person, and the right one was never stopped. 11:30.",
     },
     named_the_killer: {
-      title: "Name the Killer", tone: "final", photo: "accident",
+      title: "Name the Killer", tone: "final", photo: "ending_killer",
       text: "You open the door and say it to his face: \"I know what you did to Sam.\" Theo freezes. The mask cracks. It's ugly and it's loud and the neighbors call it in, but Lena is alive, and for the first time the lie is out loud. Not clean. But over.",
     },
     saved_her: {
-      title: "Before Midnight", tone: "true", photo: "sisters_kids",
+      title: "Before Midnight", tone: "true", photo: "ending_truth",
       text: "You don't open the door. You call it in. You warn her. Theo is still at the bottom of the stairs when the police arrive, and Lena is alive, and Sam is finally more than a lie. The clock reads 11:31. Then 11:32. Time moves.\n\nYou set the phone down. It buzzes once more.\n\nUnknown: \"Good. You got it right this time. Now do you remember who was driving the SECOND car?\"\n\nThe screen reads 11:25. The phone is buzzing on the nightstand. Mara wants to tell you something.",
     },
   },
 };
 
 export const PHOTO_SRC = {
-  mara_laughing: "/photos/mara_laughing.jpg",
-  us_recent: "/photos/us_recent.jpg",
+  mara_laughing: "/photos/mara_laughing.png",
+  us_recent: "/photos/us_recent.png",
   map_pin: "/photos/map_pin.png",
   note: "/photos/note.png",
   front_door: "/photos/front_door.png",
   street_sign: "/photos/street_sign.png",
-  old_us: "/photos/old_us.jpg",
+  old_us: "/photos/old_us.png",
   accident: "/photos/accident.png",
   sonogram: "/photos/sonogram.png",
-  sisters_kids: "/photos/sisters_kids.jpg",
+  sisters_kids: "/photos/sisters_kids.png",
+  // characters
+  sam: "/photos/sam.png",
+  sam_alive: "/photos/sam_alive.png",
+  theo: "/photos/theo.png",
+  // ending reveals
+  ending_truth: "/photos/ending_truth.png",
+  ending_killer: "/photos/ending_killer.png",
+  ending_blow: "/photos/ending_blow.png",
+  ending_believe: "/photos/ending_believe.png",
+  ending_kindness: "/photos/ending_kindness.png",
+  ending_stranger: "/photos/ending_stranger.png",
+  ending_wrongname: "/photos/ending_wrongname.png",
 };
